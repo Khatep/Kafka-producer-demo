@@ -5,6 +5,7 @@ import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.kafka.common.serialization.Serializer;
+import org.jspecify.annotations.NonNull;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -43,6 +44,10 @@ public class KafkaConfiguration {
         configProps.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, 5);
 
         // Создаём сериализатор через Jackson напрямую
+        return getStringReceiptDefaultKafkaProducerFactory(objectMapper, configProps);
+    }
+
+    private static @NonNull DefaultKafkaProducerFactory<String, Receipt> getStringReceiptDefaultKafkaProducerFactory(ObjectMapper objectMapper, Map<String, Object> configProps) {
         Serializer<Receipt> valueSerializer = (topic, data) -> {
             try {
                 return objectMapper.writeValueAsBytes(data);
@@ -51,17 +56,14 @@ public class KafkaConfiguration {
             }
         };
 
-        DefaultKafkaProducerFactory<String, Receipt> factory =
-                new DefaultKafkaProducerFactory<>(configProps);
+        DefaultKafkaProducerFactory<String, Receipt> factory = new DefaultKafkaProducerFactory<>(configProps);
         factory.setValueSerializer(valueSerializer);
-
+        factory.setTransactionIdPrefix("receipt-tx-");
         return factory;
     }
 
     @Bean
     public KafkaTemplate<String, Receipt> kafkaTemplate(ProducerFactory<String, Receipt> producerFactory) {
-        KafkaTemplate<String, Receipt> kafkaTemplate = new KafkaTemplate<>(producerFactory);
-        kafkaTemplate.setTransactionIdPrefix("receipt-tx-");
-        return kafkaTemplate;
+        return new KafkaTemplate<>(producerFactory);
     }
 }

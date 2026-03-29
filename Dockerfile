@@ -1,33 +1,22 @@
-# Stage 1 — Build with Maven using JDK 21
-FROM eclipse-temurin:21 AS build
+# Stage 1: сборка
+FROM maven:3.9-eclipse-temurin-21 AS build
+
+#RUN apt-get update && apt-get install -y nodejs npm && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-
-# Устанавливаем Maven
-RUN apt-get update && apt-get install -y maven
-
-COPY pom.xml .
+COPY pom.xml ./
 COPY src ./src
+RUN mvn package -Pproduction -Dmaven.test.skip
 
-RUN mvn clean package -DskipTests
+# Stage 2: hardened runtime — zero CVE
+FROM bellsoft/hardened-liberica-runtime-container:jre-21-glibc AS runner
 
-# Stage 2 — Extract layers from the built .jar using JDK 21
-FROM eclipse-temurin:21 AS builder
+WORKDIR /app
+RUN addgroup -Sg 1000 appuser && adduser -SG appuser -u 1000 appuser
 
-WORKDIR /application
-ARG JAR_FILE=/app/target/*.jar
-COPY --from=build ${JAR_FILE} service.jar
+# --chown вместо отдельного RUN chown — не создаёт лишний слой
+COPY --from=build --chown=appuser:appuser /app/target/*.jar service.jar
 
-RUN java -Djarmode=layertools -jar service.jar extract
+USER appuser
 
-# Stage 3 — Runtime with JDK 21
-FROM eclipse-temurin:21-jre
-
-WORKDIR /application
-
-COPY --from=builder /application/dependencies/ ./
-COPY --from=builder /application/spring-boot-loader/ ./
-COPY --from=builder /application/snapshot-dependencies/ ./
-COPY --from=builder /application/application/ ./
-
-ENTRYPOINT ["java", "org.springframework.boot.loader.launch.JarLauncher"]
+ENTRYPOINT ["java", "-jar", "-Dspring.profiles.active=production", "service.jar"]

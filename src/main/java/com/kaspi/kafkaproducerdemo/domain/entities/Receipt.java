@@ -20,18 +20,17 @@ import java.util.UUID;
 public class Receipt {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "receipt_number", unique = true)
     private UUID receiptNumber;
 
     @Column(name = "description")
     private String description;
 
-    //https://balaguide.kz/receipts/rcpt-20250416-00001.pdf
     @Column(name = "file_url")
     private String fileUrl;
 
-    //SYSTEM, EDUCATION_SYSTEM
+    //Name of the Service
     @Column(name = "issuer")
     private String issuer;
 
