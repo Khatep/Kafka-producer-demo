@@ -1,11 +1,13 @@
 package com.kaspi.kafkaproducerdemo.domain.entities;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.kaspi.kafkaproducerdemo.domain.enums.Currency;
+import com.kaspi.kafkaproducerdemo.domain.enums.PaymentMethod;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.proxy.HibernateProxy;
 
-import java.util.Objects;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Getter
@@ -34,21 +36,49 @@ public class Receipt {
     @Column(name = "issuer")
     private String issuer;
 
+    @Column(name = "payment_id")
     private Long paymentId;
 
-    @Override
-    public final boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : this.getClass();
-        if (thisEffectiveClass != oEffectiveClass) return false;
-        Receipt receipt = (Receipt) o;
-        return getReceiptNumber() != null && Objects.equals(getReceiptNumber(), receipt.getReceiptNumber());
-    }
+    @Column(name = "client_email")
+    private String clientEmail;
 
-    @Override
-    public final int hashCode() {
-        return this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+    @Column(name = "amount", nullable = false, precision = 19, scale = 2)
+    private BigDecimal amount;
+
+    @Column(name = "tax_amount", precision = 19, scale = 2)
+    private BigDecimal taxAmount;
+
+    @Column(name = "discount_amount", precision = 19, scale = 2)
+    private BigDecimal discountAmount;
+
+    @Column(name = "total_amount", nullable = false, precision = 19, scale = 2)
+    private BigDecimal totalAmount;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "currency", length = 3)
+    private Currency currency;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payment_method")
+    private PaymentMethod paymentMethod;
+
+    @Column(name = "merchant_id")
+    private String merchantId;
+
+    @Column(name = "merchant_name")
+    private String merchantName;
+
+    @Column(name = "merchant_bin")
+    private String merchantBin;
+
+    @Column(name = "terminal_id")
+    private String terminalId;
+
+    @Column(name = "issued_at")
+    private LocalDateTime issuedAt;
+
+    @PrePersist
+    protected void onCreate() {
+        this.issuedAt = LocalDateTime.now();
     }
 }

@@ -1,35 +1,56 @@
 services:
-  app:
+  kafka-producer-demo:
     build: .
     ports:
       - "${SERVER_PORT}:${SERVER_PORT}"
     networks:
       - demo-network
     depends_on:
-      db:
+      db-producer:
+        condition: service_healthy   # ← ждём готовности db
+      db-consumer:
         condition: service_healthy   # ← ждём готовности db
       kafka:
         condition: service_healthy   # ← ждём готовности kafka
     environment:
       SERVER_PORT: ${SERVER_PORT}
-      DB_URL: ${DB_URL}
-      DB_USERNAME: ${DB_USERNAME}
-      DB_PASSWORD: ${DB_PASSWORD}
+      DB_URL: ${PRODUCER_DB_URL}
+      DB_USERNAME: ${PRODUCER_DB_USERNAME}
+      DB_PASSWORD: ${PRODUCER_DB_PASSWORD}
       KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
 
-  db:
+  db-producer:
     image: postgres:15
-    container_name: database
+    container_name: database-producer
     networks:
       - demo-network
     environment:
-      POSTGRES_DB: ${DB_NAME}
-      POSTGRES_USER: ${DB_USERNAME}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${PRODUCER_DB_NAME}
+      POSTGRES_USER: ${PRODUCER_DB_USERNAME}
+      POSTGRES_PASSWORD: ${PRODUCER_DB_PASSWORD}
     ports:
-      - "${DB_EXTERNAL_PORT}:${DB_INTERNAL_PORT}"
+      - "${PRODUCER_DB_EXTERNAL_PORT}:${PRODUCER_DB_INTERNAL_PORT}"
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_NAME}" ]
+      test: [ "CMD-SHELL", "pg_isready -U ${PRODUCER_DB_USERNAME} -d ${PRODUCER_DB_NAME}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+  #    volumes:
+  #      - ./pgdata:/var/lib/postgresql/data
+
+  db-consumer:
+    image: postgres:15
+    container_name: database-consumer
+    networks:
+      - demo-network
+    environment:
+      POSTGRES_DB: ${CONSUMER_DB_NAME}
+      POSTGRES_USER: ${CONSUMER_DB_USERNAME}
+      POSTGRES_PASSWORD: ${CONSUMER_DB_PASSWORD}
+    ports:
+      - "${CONSUMER_DB_EXTERNAL_PORT}:${CONSUMER_DB_INTERNAL_PORT}"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${CONSUMER_DB_USERNAME} -d ${CONSUMER_DB_NAME}" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -50,9 +71,10 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+      start_period: 15s
 
   kafka:
-    image: confluentinc/cp-kafka:7.5.0
+    image: confluentinc/cp-kafka:7.7.8
     networks:
       - demo-network
     container_name: kafka
@@ -60,12 +82,14 @@ services:
       - zookeeper
     ports:
       - "${KAFKA_EXTERNAL_PORT}:${KAFKA_INTERNAL_PORT}"
+      - "127.0.0.1:${KAFKA_INTERNAL_PORT}:${KAFKA_INTERNAL_PORT}"
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: ${KAFKA_ZOOKEEPER_CONNECT}
       KAFKA_ADVERTISED_LISTENERS: ${KAFKA_ADVERTISED_LISTENERS}
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: ${KAFKA_LISTENER_SECURITY_PROTOCOL_MAP}
       KAFKA_LISTENERS: ${KAFKA_LISTENERS}
+      KAFKA_INTER_BROKER_LISTENER_NAME: ${KAFKA_INTER_BROKER_LISTENER_NAME}
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
